@@ -1,9 +1,27 @@
 interface User {
-    username: string,
-    password: string,
-    salt: string,
+    userID: string,
+    password?: string,
+    salt?: string,
     displayName: string,
-    authToken: string
+    authToken?: string,
+    publicKey?: string
 }
 
-export {User};
+interface Message {
+    id: string,
+    to: {
+        url: string,
+        id: string
+    },
+    from: {
+        url: string,
+        id: string
+    },
+    text: string,
+    signature: string,
+    status?: 'not delivered' | 'delivered' | 'read',
+    sentTimestamp: number,
+    receivedTimestamp?: number
+}
+
+export {User, Message};

@@ -8,16 +8,22 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-//import serverRouter from './server/router';
+import serverRouter from './server/router';
 import clientRouter from './client/router';
 
-app.use(cors());
+app.use(cors({
+    origin: function (origin, callback) {
+        callback(null, origin)
+    },
+    credentials: true
+}));
+app.use(express.json());
 
 app.use('/app', clientRouter);
-//app.use('/', serverRouter);
+app.use('/', serverRouter);
 
 app.get('/', (req, res) => {
-    res.send('hello world');
+    res.redirect('/app');
 });
 
 app.listen(port, () => {

@@ -6,7 +6,7 @@ function generateAuthToken() {
     return crypto.randomBytes(32).toString('hex');
 }
 
-async function getAuthToken(username: string): Promise<string> {
+async function getAuthToken(username: string): Promise<string|undefined> {
     const user = await db.get('users/' + username) as User;
     if (!user) return '';
 

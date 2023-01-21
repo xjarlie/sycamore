@@ -1,13 +1,11 @@
 // const express = require('express');
-import express from 'express';
+import express, { CookieOptions } from 'express';
 import db from './db/conn';
 const router = express.Router();
 import crypto from 'crypto';
 import { generateAuthToken, getAuthToken } from './tokenUtils';
 
-// const { checkAuthToken, generateAuthToken, getAuthToken } = require('./tokenUtils');
-
-//const cookieOptions = { secure: true, httpOnly: true, maxAge: 5184000000 /* 60 days */, sameSite: 'none' };
+const cookieOptions = { secure: true, httpOnly: true, maxAge: 5184000000 /* 60 days */, sameSite: 'none' } as CookieOptions;
 
 router.post('/signUp', async (req, res) => {
     const { username, password, displayName } = req.body;
@@ -32,8 +30,8 @@ router.post('/signUp', async (req, res) => {
         password: hashedPassword,
         salt: salt,
         authToken: authToken,
-        inbox: [],
-        outbox: []
+        inbox: {},
+        outbox: {}
     };
 
     const result = await db.set('users/' + username, data);
@@ -72,7 +70,7 @@ router.post('/login', async (req, res) => {
 });
 
 function hashPassword(password: string, salt = (crypto.randomBytes(32).toString('hex')), iterations = 100100) {
-    const hashed = crypto.pbkdf2Sync(password, salt, iterations);
+    const hashed = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha512');
     return { hashed, salt };
 }
 
