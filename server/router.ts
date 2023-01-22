@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { CookieOptions } from 'express';
 const router = express.Router();
 import db from './db/conn';
 import crypto, { KeyObject, subtle as subtleCrypto } from 'crypto';
@@ -8,7 +8,7 @@ import { checkAuthToken } from './tokenUtils';
 
 router.use('/auth', authRouter);
 
-const cookieOptions = { secure: true, httpOnly: true, maxAge: 5184000000 /* 60 days */, sameSite: 'none' };
+const cookieOptions = { secure: true, httpOnly: true, maxAge: 5184000000 /* 60 days */, sameSite: 'none' } as CookieOptions;
 
 router.post('/test', (req, res) => {
     console.log(req.body);
@@ -23,10 +23,10 @@ router.get('/server-info', async (req, res) => {
 
 router.get('/users/:username/info', async (req, res) => {
     const { username } = req.params;
-    const AUTH_TOKEN = req.cookies?.AUTH_TOKEN;
-    const USERNAME = req.cookies?.USERNAME;
+    const AUTH_TOKEN: string = req.cookies?.AUTH_TOKEN;
+    const USERNAME: string = req.cookies?.USERNAME;
 
-    const user = await db.get('users/' + username) as User;
+    const user: User = await db.get('users/' + username);
     if (!user) {
         res.status(404).json({ result: 'Error', message: 'User does not exist' });
         return false;
@@ -38,7 +38,8 @@ router.get('/users/:username/info', async (req, res) => {
     } else {
         data = {
             displayName: user.displayName,
-            userID: user.userID
+            userID: user.userID,
+            publicKey: user.publicKey
         }
     }
 
@@ -47,16 +48,15 @@ router.get('/users/:username/info', async (req, res) => {
 });
 
 router.post('/sendMessage', async (req, res) => {
-    // const { AUTH_TOKEN, USERNAME } = req.cookies;
-    // if (!(await checkAuthToken(USERNAME, AUTH_TOKEN))) {
-    //     res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
-    //     return false;
-    // }
+    const { AUTH_TOKEN, USERNAME } = req.cookies;
+    if (!(await checkAuthToken(USERNAME, AUTH_TOKEN))) {
+        res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
+        return false;
+    }
 
-    const USERNAME = 'xjarlie';
+    const message = req.body;
 
-    const unencryptedMessage = req.body.message;
-    const to = req.body.to;
+    const to: Message['to'] = req.body.to;
 
     const isServerKnown = await db.get('knownServers/' + to.url);
     let serverPublicKey: string = '';
@@ -75,11 +75,11 @@ router.post('/sendMessage', async (req, res) => {
 
     console.log(serverPublicKey);
 
-    const signedMessage = await signMessage(unencryptedMessage);
+    const signedMessage = await signMessage(message.text);
     const id = crypto.randomUUID();
 
     const data: Message = {
-        text: unencryptedMessage,
+        text: message.text,
         from: {
             id: USERNAME,
             url: await db.get('serverInfo/url')

@@ -4,11 +4,12 @@ import db from './db/conn';
 const router = express.Router();
 import crypto from 'crypto';
 import { generateAuthToken, getAuthToken } from './tokenUtils';
+import { User } from './db/schema';
 
 const cookieOptions = { secure: true, httpOnly: true, maxAge: 5184000000 /* 60 days */, sameSite: 'none' } as CookieOptions;
 
 router.post('/signUp', async (req, res) => {
-    const { username, password, displayName } = req.body;
+    const { username, password, displayName }: {username: string, password: string, displayName: string} = req.body;
 
     if (!username || !password || !displayName) {
         res.status(400).json({ result: 'Error', message: 'Username and password needed' });
@@ -24,8 +25,8 @@ router.post('/signUp', async (req, res) => {
 
     const authToken = generateAuthToken();
 
-    const data = {
-        username: username,
+    const data: User = {
+        userID: username,
         displayName: displayName,
         password: hashedPassword,
         salt: salt,
@@ -40,14 +41,14 @@ router.post('/signUp', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-    const {username, password} = req.body;
+    const {username, password}: {username: string, password: string} = req.body;
 
     if (!username || !password) {
         res.status(400).json({result: 'Error', message: 'Username and password needed'});
         return false;
     }    
 
-    const user = await db.get('users/' + username);
+    const user: User = await db.get('users/' + username);
     if (!user) {
         res.status(400).json({result: 'Error', message: 'Account does not exist'});
         return false;
@@ -57,7 +58,7 @@ router.post('/login', async (req, res) => {
     const salt = user.salt;
 
     const testHash = hashPassword(password, salt);
-    if (testHash !== storedHash) {
+    if (testHash.hashed !== storedHash) {
         res.status(400).json({result: 'Error', message: 'Incorrect password'});
         return false;
     }
@@ -70,7 +71,7 @@ router.post('/login', async (req, res) => {
 });
 
 function hashPassword(password: string, salt = (crypto.randomBytes(32).toString('hex')), iterations = 100100) {
-    const hashed = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha512');
+    const hashed = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha512').toString('hex');
     return { hashed, salt };
 }
 

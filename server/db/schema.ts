@@ -4,7 +4,9 @@ interface User {
     salt?: string,
     displayName: string,
     authToken?: string,
-    publicKey?: string
+    publicKey?: string,
+    inbox?: any,
+    outbox?: any
 }
 
 interface Message {
