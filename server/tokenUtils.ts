@@ -2,23 +2,30 @@ import crypto from 'crypto';
 import db from './db/conn';
 import { User } from './db/schema';
 
-function generateAuthToken() {
-    return crypto.randomBytes(32).toString('hex');
+export function generateAuthToken() {
+    return crypto.randomBytes(64).toString('hex');
 }
 
-async function getAuthToken(username: string): Promise<string|undefined> {
+export async function getAuthToken(username: string): Promise<string|undefined> {
     const user = await db.get('users/' + username) as User;
     if (!user) return '';
 
     return user.authToken;
 }
 
-async function checkAuthToken(username: string, token: string): Promise<boolean> {
+export async function checkAuthToken(username: string, token: string): Promise<boolean> {
     if (await getAuthToken(username) !== token) return false;
 
-    await db.set('users/' + username + '/authToken', generateAuthToken());
+    // await db.set('users/' + username + '/authToken', generateAuthToken());
 
     return true;
 }
 
-export {generateAuthToken, getAuthToken, checkAuthToken};
+export function parseAuth(auth: string) {
+
+    const x = auth?.split('Bearer')[1];
+    const token = x?.split('----')[1];
+    const id = x?.split('----')[0];
+
+    return {USERNAME: id?.trim(), AUTH_TOKEN: token?.trim()};
+}

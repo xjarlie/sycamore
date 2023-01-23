@@ -8,6 +8,23 @@ import { User } from './db/schema';
 
 const cookieOptions = { secure: true, httpOnly: true, maxAge: 5184000000 /* 60 days */, sameSite: 'none' } as CookieOptions;
 
+router.get('/checkUsername/:username', async (req, res) => {
+
+    const {username} = req.params;
+
+    console.log('Username checked: ', username);
+
+    const user: User = await db.get(`users/${username}`);
+    if (user) {
+        res.status(400).json({ message: 'User already exists' });
+        return false;
+    }
+
+    res.status(200).json({ message: 'Username available' });
+    return true;
+
+});
+
 router.post('/signUp', async (req, res) => {
     const { username, password, displayName }: {username: string, password: string, displayName: string} = req.body;
 
@@ -23,14 +40,11 @@ router.post('/signUp', async (req, res) => {
 
     const { hashed: hashedPassword, salt } = hashPassword(password);
 
-    const authToken = generateAuthToken();
-
     const data: User = {
         userID: username,
         displayName: displayName,
         password: hashedPassword,
         salt: salt,
-        authToken: authToken,
         inbox: {},
         outbox: {}
     };
@@ -66,7 +80,7 @@ router.post('/login', async (req, res) => {
     const token = generateAuthToken();
     await db.set('users/' + username + '/authToken', token);
 
-    res.status(200).cookie('AUTH_TOKEN', await getAuthToken(username), cookieOptions).cookie('USERNAME', username, cookieOptions).json({result: 'Success', message: 'Logged in', authToken: token});
+    res.status(200).json({result: 'Success', message: 'Logged in', authToken: token});
     return true;
 });
 

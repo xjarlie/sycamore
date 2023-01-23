@@ -1,14 +1,15 @@
-import express, { CookieOptions } from 'express';
+import express, { CookieOptions, Response } from 'express';
 const router = express.Router();
 import db from './db/conn';
 import crypto, { KeyObject, subtle as subtleCrypto } from 'crypto';
 import { Message, User } from './db/schema';
 import authRouter from './authRouter';
-import { checkAuthToken } from './tokenUtils';
+import { checkAuthToken, parseAuth } from './tokenUtils';
 
 router.use('/auth', authRouter);
 
 const cookieOptions = { secure: true, httpOnly: true, maxAge: 5184000000 /* 60 days */, sameSite: 'none' } as CookieOptions;
+const polls: any = {};
 
 router.post('/test', (req, res) => {
     console.log(req.body);
@@ -23,8 +24,7 @@ router.get('/server-info', async (req, res) => {
 
 router.get('/users/:username/info', async (req, res) => {
     const { username } = req.params;
-    const AUTH_TOKEN: string = req.cookies?.AUTH_TOKEN;
-    const USERNAME: string = req.cookies?.USERNAME;
+
 
     const user: User = await db.get('users/' + username);
     if (!user) {
@@ -33,13 +33,13 @@ router.get('/users/:username/info', async (req, res) => {
     }
 
     let data;
-    if (USERNAME && AUTH_TOKEN && await checkAuthToken(USERNAME, AUTH_TOKEN) && USERNAME === username) {
+    if (req.headers.authorization && await checkAuthToken((parseAuth(req.headers.authorization).USERNAME), (parseAuth(req.headers.authorization).AUTH_TOKEN)) && (parseAuth(req.headers.authorization).USERNAME) === username) {
         data = user;
     } else {
         data = {
             displayName: user.displayName,
             userID: user.userID,
-            publicKey: user.publicKey
+            publicKey: user.publicKey || ''
         }
     }
 
@@ -47,12 +47,15 @@ router.get('/users/:username/info', async (req, res) => {
     return true;
 });
 
-router.post('/sendMessage', async (req, res) => {
-    const { AUTH_TOKEN, USERNAME } = req.cookies;
-    if (!(await checkAuthToken(USERNAME, AUTH_TOKEN))) {
-        res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
-        return false;
-    }
+router.post('/outbox', async (req, res) => {
+
+    // if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
+    //     res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
+    //     return false;
+    // }
+
+    //const { USERNAME, AUTH_TOKEN } = parseAuth(req.headers.authorization);
+    const USERNAME = 'xjarlie';
 
     const message = req.body;
 
@@ -85,7 +88,7 @@ router.post('/sendMessage', async (req, res) => {
             url: await db.get('serverInfo/url')
         },
         to: to,
-        signature: signedMessage + 'wasd',
+        signature: signedMessage,
         id: id,
         status: 'not delivered',
         sentTimestamp: Date.now()
@@ -131,7 +134,7 @@ router.post('/inbox', async (req, res) => {
     const messageSignature = message.signature;
 
     const verified = await verifyMessage(message.text, fromPublicKey, messageSignature);
-    
+    //const verified = true;
 
     const recipient = message.to.id;
     message.status = 'delivered';
@@ -139,7 +142,28 @@ router.post('/inbox', async (req, res) => {
     message.receivedTimestamp = Date.now();
     await db.set(`/users/${recipient}/inbox/${message.id}`, {...message, verified: verified, timeToReceive: message.receivedTimestamp - message.sentTimestamp});
 
+    if (polls[recipient] !== undefined) {
+        console.log(recipient);
+        const recipientRes = polls[recipient] as Response;
+        recipientRes.status(200).json({message});
+        delete polls[recipient];
+        console.log(polls[recipient]);
+    }
+
     res.status(201).json({ message: 'Message delivered' });
+});
+
+router.get('/pollInbox', async (req, res) => {
+    if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
+        res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
+        return false;
+    }
+
+    const username = parseAuth(req.headers.authorization).USERNAME;
+
+    polls[username] = res;
+
+    console.log('pollll', username);
 });
 
 
