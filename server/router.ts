@@ -49,13 +49,13 @@ router.get('/users/:username/info', async (req, res) => {
 
 router.post('/outbox', async (req, res) => {
 
-    // if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
-    //     res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
-    //     return false;
-    // }
+    if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
+        res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
+        return false;
+    }
 
-    //const { USERNAME, AUTH_TOKEN } = parseAuth(req.headers.authorization);
-    const USERNAME = 'xjarlie';
+    const { USERNAME, AUTH_TOKEN } = parseAuth(req.headers.authorization);
+    //const USERNAME = 'xjarlie1';
 
     const message = req.body;
 
@@ -119,19 +119,27 @@ router.post('/inbox', async (req, res) => {
     const message: Message = req.body;
     console.log('MESSAGE RECEIVED: ', message);
 
+    if (!(message.to && message.from && message.id && message.signature && message.sentTimestamp && message.text)) {
+        res.status(400).json({ message: 'Invalid message' });
+        return false;
+    }
+
     const thisUrl: string = await db.get('serverInfo/url');
     if (message.to.url !== thisUrl) {
         res.status(400).json({ message: 'Wrong server' });
         return false;
     }
 
+    let fromPublicKey = '';
+
     // Get sender server public key
-    const response = await fetch(`${message.from.url}/server-info`);
+    const response = await fetch(`${message.from?.url}/server-info`);
     const json = await response.json();
-    const fromPublicKey: string = json.publicKey;
+    fromPublicKey = json.publicKey;
+
 
     // Verify signature
-    const messageSignature = message.signature;
+    const messageSignature = message.signature || '';
 
     const verified = await verifyMessage(message.text, fromPublicKey, messageSignature);
     //const verified = true;
@@ -140,12 +148,12 @@ router.post('/inbox', async (req, res) => {
     message.status = 'delivered';
 
     message.receivedTimestamp = Date.now();
-    await db.set(`/users/${recipient}/inbox/${message.id}`, {...message, verified: verified, timeToReceive: message.receivedTimestamp - message.sentTimestamp});
+    await db.set(`/users/${recipient}/inbox/${message.id}`, { ...message, verified: verified, timeToReceive: message.receivedTimestamp - message.sentTimestamp });
 
     if (polls[recipient] !== undefined) {
         console.log(recipient);
         const recipientRes = polls[recipient] as Response;
-        recipientRes.status(200).json({message});
+        recipientRes.status(200).json({ message });
         delete polls[recipient];
         console.log(polls[recipient]);
     }
