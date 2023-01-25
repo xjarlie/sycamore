@@ -106,6 +106,7 @@ router.post('/outbox', async (req, res) => {
         body: JSON.stringify(data)
     });
     const json = await response.json();
+    console.log('JSON', json)
     if (response.status === 201) {
         await db.set(`/users/${USERNAME}/outbox/${id}/status`, 'delivered');
     }
@@ -155,7 +156,6 @@ router.post('/inbox', async (req, res) => {
         const recipientRes = polls[recipient] as Response;
         recipientRes.status(200).json({ message });
         delete polls[recipient];
-        console.log(polls[recipient]);
     }
 
     res.status(201).json({ message: 'Message delivered' });
