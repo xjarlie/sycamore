@@ -174,6 +174,20 @@ router.get('/pollInbox', async (req, res) => {
     console.log('pollll', username);
 });
 
+router.get('/inbox', async (req, res) => {
+    if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
+        res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
+        return false;
+    }
+
+    const username = parseAuth(req.headers.authorization).USERNAME;
+
+    const user: User = await db.get('/users/' + username);
+
+    res.status(200).json({ inbox: user.inbox });
+    return true;
+})
+
 
 async function verifyMessage(message: string, publicKey: string, sig: string) {
 
