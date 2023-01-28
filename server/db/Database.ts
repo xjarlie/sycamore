@@ -24,16 +24,25 @@ class Database {
     }
 
     async loadDB(): Promise<object> {
-        const data: Buffer = await fs.readFile(this.filePath);
-        return JSON.parse(data.toString());
+        try {
+            const data: Buffer = await fs.readFile(this.filePath);
+            return JSON.parse(data.toString());
+        } catch (e) {
+            console.log(e);
+            const sleep = async () => {
+                return new Promise(resolve => setTimeout(resolve, 100));
+            }
+            await sleep();
+            return this.loadDB()
+        }
     }
 
     pathToArray(path: string): string[] {
         if (path) {
             let arr = path.split('/');
-        
+
             return arr.filter(n => n);
-        }  else return [''];
+        } else return [''];
     }
 
     arrayToPath(array: string[]): string {
@@ -70,7 +79,7 @@ class Database {
         return await fs.writeFile(this.filePath, JSON.stringify(db));
     }
 
-    async push(path: string, value: any, { length=8, includeID=false }) {
+    async push(path: string, value: any, { length = 8, includeID = false }) {
         let key: string | undefined;
         let exists: boolean = true;
         let fullPath: string = path;
@@ -90,7 +99,7 @@ class Database {
         if (value) {
 
             if (includeID) {
-                result = await this.set(fullPath, {...value, id: key});
+                result = await this.set(fullPath, { ...value, id: key });
             } else {
                 result = await this.set(fullPath, value);
             }

@@ -10,6 +10,7 @@ router.use('/auth', authRouter);
 
 const cookieOptions = { secure: true, httpOnly: true, maxAge: 5184000000 /* 60 days */, sameSite: 'none' } as CookieOptions;
 const polls: any = {};
+const outboxPolls: any = {};
 
 router.post('/test', (req, res) => {
     console.log(req.body);
@@ -59,6 +60,11 @@ router.post('/outbox', async (req, res) => {
 
     const message = req.body;
 
+    if (!(message.text && message.to && message.to.url && message.to.id)) {
+        res.status(400).json({ message: 'Invalid message' });
+        return false;
+    }
+
     const to: Message['to'] = req.body.to;
 
     const isServerKnown = await db.get('knownServers/' + to.url);
@@ -66,10 +72,17 @@ router.post('/outbox', async (req, res) => {
     if (isServerKnown === undefined) {
         console.log('not known');
 
-        const serverInfo = await fetch(`${to.url}/server-info`);
-        const json = await serverInfo.json();
-        if (json) {
-            serverPublicKey = json.publicKey;
+        try {
+            const serverInfo = await fetch(`${to.url}/server-info`);
+            const json = await serverInfo.json();
+            if (json) {
+                serverPublicKey = json.publicKey;
+                to.url = json.url;
+            }
+        } catch (e) {
+            console.log(e);
+            res.status(400).json({ message: 'Recipient server unavailable' });
+            return false;
         }
 
     } else {
@@ -96,8 +109,6 @@ router.post('/outbox', async (req, res) => {
 
     await db.set('users/' + USERNAME + '/outbox/' + id, data);
 
-    console.log(to.url + '/inbox');
-
     const response = await fetch(to.url + '/inbox', {
         method: 'POST',
         headers: {
@@ -109,9 +120,31 @@ router.post('/outbox', async (req, res) => {
     console.log('JSON', json)
     if (response.status === 201) {
         await db.set(`/users/${USERNAME}/outbox/${id}/status`, 'delivered');
+
+        if (outboxPolls[USERNAME] !== undefined) {
+            const recipientRes = outboxPolls[USERNAME] as Response;
+            recipientRes.status(200).json({ message: {...data, status: 'delivered'} })
+            delete outboxPolls[USERNAME];
+        }
+
+        res.status(201).json({...data, status: 'delivered'});
+        return true;
     }
 
-    res.json(data);
+    // if (polls[recipient] !== undefined) {
+    //     console.log(recipient);
+    //     const recipientRes = polls[recipient] as Response;
+    //     recipientRes.status(200).json({ message });
+    //     delete polls[recipient];
+    // }
+
+    if (outboxPolls[USERNAME] !== undefined) {
+        const recipientRes = outboxPolls[USERNAME] as Response;
+        recipientRes.status(200).json({ message: data })
+        delete outboxPolls[USERNAME];
+    }
+
+    res.status(201).json(data);
 
 });
 
@@ -174,7 +207,21 @@ router.get('/pollInbox', async (req, res) => {
     console.log('pollll', username);
 });
 
-router.get('/inbox', async (req, res) => {
+router.get('/polloutbox', async (req, res) => {
+    if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
+        res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
+        return false;
+    }
+
+    const username = parseAuth(req.headers.authorization).USERNAME;
+
+    outboxPolls[username] = res;
+
+    console.log('outboxPolllll', username);
+
+})
+
+router.get('/messages', async (req, res) => {
     if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
         res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
         return false;
@@ -184,7 +231,7 @@ router.get('/inbox', async (req, res) => {
 
     const user: User = await db.get('/users/' + username);
 
-    res.status(200).json({ inbox: user.inbox });
+    res.status(200).json({ inbox: user.inbox, outbox: user.outbox });
     return true;
 })
 
