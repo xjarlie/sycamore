@@ -2,8 +2,9 @@ import crypto from 'crypto';
 
 import db from './db/conn';
 
-async function main() {
+import { keys } from './db/db/db.json';
 
+async function main() {
     const keys = crypto.generateKeyPairSync('rsa', {
         modulusLength: 4096,
         publicKeyEncoding: {
@@ -24,4 +25,7 @@ async function main() {
     await db.set('keys', keys);
 }
 
-main();
+if (keys === undefined) {
+
+    main();
+}

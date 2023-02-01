@@ -201,20 +201,31 @@ router.get('/pollInbox', async (req, res) => {
     }
 
     const username = parseAuth(req.headers.authorization).USERNAME;
+    //const lastMsgTimestamp = req.body.timestamp;
+
+    // polls[username] = {
+    //     response: res,
+    //     timestamp: lastMsgTimestamp
+    // };
 
     polls[username] = res;
 
     console.log('pollll', username);
 });
 
-router.get('/polloutbox', async (req, res) => {
+router.get('/pollOutbox', async (req, res) => {
     if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
         res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
         return false;
     }
 
     const username = parseAuth(req.headers.authorization).USERNAME;
+    //const lastMsgTimestamp = req.body.timestamp;
 
+    // outboxPolls[username] = {
+    //     response: res,
+    //     timestamp: lastMsgTimestamp
+    // };
     outboxPolls[username] = res;
 
     console.log('outboxPolllll', username);

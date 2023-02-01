@@ -1,4 +1,4 @@
-import { keys } from './db/db.json';
+import { keys } from './db/db/db.json';
 import crypto from 'crypto';
 
 const RAW_MESSAGE = 'omg hi';
