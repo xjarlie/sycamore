@@ -123,11 +123,11 @@ router.post('/outbox', async (req, res) => {
 
         if (outboxPolls[USERNAME] !== undefined) {
             const recipientRes = outboxPolls[USERNAME] as Response;
-            recipientRes.status(200).json({ message: {...data, status: 'delivered'} })
+            recipientRes.status(200).json({ message: { ...data, status: 'delivered' } })
             delete outboxPolls[USERNAME];
         }
 
-        res.status(201).json({...data, status: 'delivered'});
+        res.status(201).json({ ...data, status: 'delivered' });
         return true;
     }
 
@@ -230,6 +230,44 @@ router.get('/pollOutbox', async (req, res) => {
 
     console.log('outboxPolllll', username);
 
+})
+
+router.post('/shortPollInbox', async (req, res) => {
+    if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
+        res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
+        return false;
+    }
+
+    const username: string = parseAuth(req.headers.authorization).USERNAME;
+    const lastMsgTimestamp: number = req.body.timestamp;
+
+    const user: User = await db.get('/users/' + username);
+    const inbox: any = await db.get('/users/' + username + '/inbox');
+
+    const filteredInbox: any = Object.fromEntries(Object.entries(inbox).filter(([key, value]: [key: string, value: any]) => value.timestamp > lastMsgTimestamp))
+
+    console.log(filteredInbox);
+
+    res.status(200).json({ inbox: filteredInbox })
+})
+
+router.post('/shortPollOutbox', async (req, res) => {
+    if (!req.headers.authorization || !(await checkAuthToken(parseAuth(req.headers.authorization).USERNAME, (parseAuth(req.headers.authorization).AUTH_TOKEN)))) {
+        res.status(400).json({ result: 'Error', message: 'Incorrect credentials' });
+        return false;
+    }
+
+    const username: string = parseAuth(req.headers.authorization).USERNAME;
+    const lastMsgTimestamp: number = req.body.timestamp;
+
+    const user: User = await db.get('/users/' + username);
+    const outbox: any = await db.get('/users/' + username + '/outbox');
+
+    const filteredOutbox: any = Object.fromEntries(Object.entries(outbox).filter(([key, value]) => (value as Message).sentTimestamp > lastMsgTimestamp))
+
+    console.log(Object.keys(filteredOutbox).length);
+
+    res.status(200).json({ outbox: filteredOutbox })
 })
 
 router.get('/messages', async (req, res) => {
