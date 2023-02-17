@@ -70,8 +70,8 @@ router.post('/outbox', async (req, res) => {
     const isServerKnown = await db.get('knownServers/' + to.url);
     let serverPublicKey: string = '';
     if (isServerKnown === undefined) {
-        console.log('not known');
-
+        to.url = 'http://' + to.url.split('://')[1];
+        console.log('not known', to.url)
         try {
             const serverInfo = await fetch(`${to.url}/server-info`);
             const json = await serverInfo.json();
@@ -241,12 +241,11 @@ router.post('/shortPollInbox', async (req, res) => {
     const username: string = parseAuth(req.headers.authorization).USERNAME;
     const lastMsgTimestamp: number = req.body.timestamp;
 
-    const user: User = await db.get('/users/' + username);
     const inbox: any = await db.get('/users/' + username + '/inbox');
 
     const filteredInbox: any = Object.fromEntries(Object.entries(inbox).filter(([key, value]: [key: string, value: any]) => value.timestamp > lastMsgTimestamp))
 
-    console.log(filteredInbox);
+    //console.log(filteredInbox);
 
     res.status(200).json({ inbox: filteredInbox })
 })
@@ -264,8 +263,6 @@ router.post('/shortPollOutbox', async (req, res) => {
     const outbox: any = await db.get('/users/' + username + '/outbox');
 
     const filteredOutbox: any = Object.fromEntries(Object.entries(outbox).filter(([key, value]) => (value as Message).sentTimestamp > lastMsgTimestamp))
-
-    console.log(Object.keys(filteredOutbox).length);
 
     res.status(200).json({ outbox: filteredOutbox })
 })
